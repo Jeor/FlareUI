@@ -33,4 +33,3 @@ const sizes=await page.evaluate(()=>({viewport:innerWidth,body:document.document
 if(errors.length)throw Error(errors.join('\n'));
 const report={status:'passed',desktop:'1440 × 1000',mobile:'390 × 844',flows:['14 sections','layout comparison without review links','7 frame cards','toggle/undo reload state','dropdown hover without committing','dropdown selection','local persistence','font menu rendering','search','dialog','mobile overflow'],consoleErrors:errors};await writeFile('test-results/browser-test-results.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }finally{await browser.close()}
-
