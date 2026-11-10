@@ -103,23 +103,52 @@ end
 -- it is away, FlareUI keeps their offset when it anchors the map, leaves their empty mask on, keeps
 -- the coordinates and auto zoom-out still and lets the mouse wheel through (it would zoom the hidden
 -- map instead of the camera). What waited runs once the map is home. NodeRadar never moves it.
-local Scan = { x = 0, y = 0, onHome = {} }
+local Scan = { x = 0, y = 0, onHome = {}, clicksOff = false, movedAt = 0, offAt = 0, QUIET = 0.4, HELD = 5 }
 function Scan.Away() return math.abs(Scan.x) > 0.5 or math.abs(Scan.y) > 0.5 end
+function Scan.Busy()
+    local since = GetTime() - math.max(Scan.movedAt, Scan.offAt)
+    return Scan.Away() or (Scan.clicksOff and since < Scan.HELD) or (GetTime() - Scan.movedAt) < Scan.QUIET
+end
 function Scan.Later(key, fn) Scan.onHome[key] = fn end
+local function ScanCheck()
+    local busy, was = Scan.Busy(), Scan.wasBusy
+    if busy ~= was then
+        Scan.wasBusy = busy
+        if Scan.UpdateArt then Scan.UpdateArt() end
+        if Scan.OnChange then Scan.OnChange(busy) end
+    end
+    if busy then
+        -- the time limits run out with no call of theirs: look again then
+        if not Scan.Away() and not Scan.timer then
+            Scan.timer = C_Timer.NewTimer(Scan.clicksOff and 1 or Scan.QUIET, function() Scan.timer = nil; ScanCheck() end)
+        end
+        return
+    end
+    if not was then return end   -- (not the end of a scan: none was on)
+    local waiting = Scan.onHome
+    Scan.onHome = {}
+    for _, fn in pairs(waiting) do fn() end
+    if Scan.OnEnd then Scan.OnEnd() end
+end
 function Scan.Watch()
     if Scan.watching or not MinimapFrame.AdjustPointsOffset then return end
     Scan.watching = true
     hooksecurefunc(MinimapFrame, "AdjustPointsOffset", function(_, dx, dy)
         if type(dx) ~= "number" or type(dy) ~= "number" or not (canaccessvalue(dx) and canaccessvalue(dy)) then return end
         Scan.x, Scan.y = Scan.x + dx, Scan.y + dy
-        local away = Scan.Away()
-        if not away then Scan.x, Scan.y = 0, 0 end
-        if Scan.OnChange then Scan.OnChange(away) end
-        if away then return end
-        local waiting = Scan.onHome
-        Scan.onHome = {}
-        for _, fn in pairs(waiting) do fn() end
+        if not Scan.Away() then Scan.x, Scan.y = 0, 0 end
+        Scan.movedAt = GetTime()
+        if Scan.Away() and Scan.OnAway then Scan.OnAway() end
+        ScanCheck()
     end)
+    if MinimapFrame.SetMouseClickEnabled then
+        hooksecurefunc(MinimapFrame, "SetMouseClickEnabled", function(_, enabled)
+            if not canaccessvalue(enabled) then return end
+            Scan.clicksOff = not enabled
+            if not enabled then Scan.offAt = GetTime() end
+            ScanCheck()
+        end)
+    end
 end
 
 local hiddenParent = CreateFrame("Frame", nil, UIParent)
@@ -188,13 +217,15 @@ local function CreateMapArt()
     back:SetSize(MAP_SIZE - 2 * MAP_CROP, MAP_SIZE - 2 * MAP_CROP)
     back:SetColorTexture(0, 0, 0, 1)
 
-    -- neither is the map's child any more: they go with it when it is hidden (Toggle Minimap key, a
-    -- full fade), not when node addons only fade it out
+    -- Keep the stationary border during a scan, but not the opaque backing: with the real map
+    -- away it leaves a black rectangle wherever the scanner has no replacement terrain to draw.
+    -- Both still follow an explicitly hidden map (Toggle Minimap key, a full fade).
     local function FollowMapShown()
         local shown = MinimapFrame:IsShown()
         frame:SetShown(shown)
-        back:SetShown(shown)
+        back:SetShown(shown and not Scan.Busy())
     end
+    Scan.UpdateArt = FollowMapShown
     MinimapFrame:HookScript("OnShow", FollowMapShown)
     MinimapFrame:HookScript("OnHide", FollowMapShown)
     FollowMapShown()
