@@ -59,7 +59,7 @@ Frame("tof", "unitframes.units.focustarget.enabled", "FlareUI_UF_TargetOfFocus")
 
 -- each style keeps its own unit frames setup (UnitFramesRing.lua), loaded on reload
 S:Row{
-    key = "uf.frameStyle", kind = "choice", reload = true, choices = { "flareui", "forever", "addon" },
+    key = "uf.frameStyle", kind = "styles", reload = true, choices = { "flareui", "forever", "addon" },
     get = function() return ns.UFRing and ns.UFRing.Style() or "addon" end,
     set = function(value)
         if ns.UFRing then ns.UFRing.SetStyle(value) end

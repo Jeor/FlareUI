@@ -208,6 +208,17 @@ end
 -- 2. RIGHT COLUMN
 --------------------------------------------------
 local preview = {}
+local previewRow
+
+local function ShowVisual(row, value)
+    if not preview.canvas then return end
+    preview.canvas.frame:SetAlpha(1)
+    local shown = ns.SettingsPreview.Show(preview.canvas, ns.SettingsPreview.Resolve(row, value))
+    preview.picture:SetShown(not shown)
+    preview.title:ClearAllPoints()
+    preview.title:SetPoint("TOPLEFT", shown and preview.canvas.frame or preview.picture, "BOTTOMLEFT", 0, -12)
+    preview.title:SetPoint("RIGHT", -PAD, 0)
+end
 
 local function ShowPreview(title, desc, tip)
     preview.title:SetText(title or "")
@@ -217,12 +228,16 @@ end
 
 -- nothing hovered: the picture and a hint
 local function ShowModulePreview()
+    previewRow = nil
+    ShowVisual(nil)
     ShowPreview(S:WindowText("infoPanelNothingHovered", L["Info Panel"]),
         S:WindowText("infoPanelNothingHovered2", L["Hover any option to see how it works!"]))
 end
 
 -- title: the row's info text, else its label, else its section title
-local function ShowRowPreview(row)
+local function ShowRowPreview(row, value)
+    previewRow = row
+    ShowVisual(row, value)
     local title = S:Text(row.key, "info")
     if not title or title == "" then title = row:Label() end
     if not title or title == "" then
@@ -233,7 +248,7 @@ end
 
 -- for custom tabs' own controls
 function Panel:ShowPreview(title, desc, tip)
-    if preview.picture then ShowPreview(title, desc, tip) end
+    if preview.picture then previewRow = nil; ShowVisual(nil); ShowPreview(title, desc, tip) end
 end
 function Panel:ShowModulePreview()
     if preview.picture then ShowModulePreview() end
@@ -253,7 +268,10 @@ end
 
 local function RowLeave(self)
     self.hover:Hide()
-    ShowModulePreview()
+    -- Keep a visual row visible after hover; cards revert from the hovered variant to the saved
+    -- selection. Behaviour-only rows retain the existing explanation/picture behaviour.
+    if self.row and ns.SettingsPreview.Resolve(self.row) then ShowRowPreview(self.row)
+    else ShowModulePreview() end
 end
 
 local function NewRowFrame(parent, kind)
@@ -389,6 +407,51 @@ Fill.choice = function(f, row)
     f.stepper.Dropdown:SetWidth(row.half and 96 or 180)
     f.stepper.Dropdown:GenerateMenu()
     f:SetHeight(ROW_H + 8)
+end
+
+-- Only the two major style choices use cards. The remaining options keep their existing controls.
+Build.styles = function(f)
+    f.cards = {}
+end
+Fill.styles = function(f, row)
+    local choices = row:Choices()
+    local width = (f:GetWidth() - 12 - (#choices - 1) * 6) / #choices
+    local top = f.crumb:GetText() ~= "" and 32 or 20
+    f.label:ClearAllPoints(); f.label:SetPoint("TOPLEFT", 6, -(top - 20))
+    f:SetHeight(top + 94)
+    for i, choice in ipairs(choices) do
+        local b = f.cards[i]
+        if not b then
+            b = CreateFrame("Button", nil, f, "BackdropTemplate")
+            b:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+            b.label = Text(b, "GameFontNormalSmall", "CENTER")
+            b.label:SetPoint("BOTTOMLEFT", 4, 6); b.label:SetPoint("BOTTOMRIGHT", -4, 6)
+            b.tick = Text(b, "GameFontNormal", "RIGHT")
+            b.tick:SetPoint("TOPRIGHT", -4, -3); b.tick:SetText("|TInterface\\Buttons\\UI-CheckBox-Check:14|t")
+            b.canvas = ns.SettingsPreview.Create(b, 100, 65)
+            b.canvas.frame:SetPoint("TOPLEFT", 3, -3)
+            b:SetScript("OnEnter", function(self) if f.row then ShowRowPreview(f.row, self.value) end end)
+            b:SetScript("OnLeave", function() if f.row then ShowRowPreview(f.row) end end)
+            b:SetScript("OnClick", function(self)
+                if f.row and not f.row:IsDisabled() then ns.ButtonSound(); f.row:Set(self.value) end
+            end)
+            f.cards[i] = b
+        end
+        b.value = choice.value
+        b:SetPoint("TOPLEFT", 6 + (i - 1) * (width + 6), -top)
+        b:SetSize(width, 86)
+        b.label:SetText(choice.text)
+        b.canvas.width, b.canvas.height = width - 6, 62
+        b.canvas.frame:SetSize(width - 6, 62)
+        ns.SettingsPreview.Style(b.canvas, row, choice.value)
+        local selected = row:Get() == choice.value
+        b:SetBackdropColor(0.04, 0.035, 0.025, 0.8)
+        b:SetBackdropBorderColor(selected and 1 or 0.45, selected and 0.82 or 0.35, selected and 0 or 0.22, 1)
+        b.tick:SetShown(selected)
+        b:SetEnabled(not row:IsDisabled()); b:SetAlpha(row:IsDisabled() and 0.45 or 1)
+        b:Show()
+    end
+    for i = #choices + 1, #f.cards do f.cards[i]:Hide() end
 end
 
 -- dropdown (long lists). row.sideButtons = { left = def, right = def } puts buttons beside it,
@@ -741,6 +804,7 @@ local function SetRowEnabled(f, enabled)
 end
 
 local function RowLabelSpace(f, row)
+    if row.kind == "styles" then return f:GetWidth() - 12 end
     -- Use the first visible control, not the width of its container.
     local control = f.control or f.edit
     if f.stepper then
@@ -1032,6 +1096,8 @@ local function ShowCustom(module, tab)
     end
     host:Show()
     if tab.preview then
+        if preview.canvas then preview.canvas:Reset(); preview.canvas.frame:Hide() end
+        previewRow = nil
         for _, region in ipairs({ preview.picture, preview.title, preview.desc, preview.tip }) do region:Hide() end
         preview.host:Show()
     end
@@ -1045,6 +1111,7 @@ function Panel:Refresh()
     if not frame or not frame:IsShown() or self.opening then return end
     ReleaseAll()
     HideCustom()
+    ShowModulePreview()
     -- only a wide custom tab, shown (not search results or a module that is off), widens the window
     do
         local module = searchText == "" and S.modules[current]
@@ -1665,6 +1732,9 @@ local function BuildWindow()
     preview.picture:SetPoint("TOP", 0, -PAD)
     preview.picture:SetTexture(PICTURE)
     preview.picture:SetSize(RIGHT_W - 2 * PAD, RIGHT_W - 2 * PAD)
+    preview.canvas = ns.SettingsPreview.Create(right, RIGHT_W - 2 * PAD, RIGHT_W - 2 * PAD)
+    preview.canvas.frame:SetPoint("TOP", 0, -PAD)
+    preview.canvas.frame:Hide()
     preview.title = Text(right, "GameFontNormalLarge")
     preview.title:SetPoint("TOPLEFT", preview.picture, "BOTTOMLEFT", 0, -12)
     preview.title:SetPoint("RIGHT", -PAD, 0)
@@ -1702,8 +1772,11 @@ local function BuildWindow()
         ns.ShowDialog("FLAREUI_RELOAD")
     end)
 
-    S:On("RowChanged", function()
+    S:On("RowChanged", function(row)
+        local showing = previewRow
         if Panel.toggleHold then Panel.toggleRefreshPending = true else Panel:Refresh() end
+        -- Refresh recycles row controls; re-render only when this was a visual settings change.
+        if frame:IsShown() and showing and showing == row then ShowRowPreview(row) end
     end)
     S:On("ReloadChanged", UpdateFooter)
 
