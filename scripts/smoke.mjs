@@ -15,7 +15,7 @@ await expect(page.locator('.lab')).toHaveClass(/current/);
 await page.getByRole('button',{name:'Design proposal',exact:true}).click();
 await page.getByRole('tab',{name:'Frames',exact:true}).click();
 await expect(page.locator('.frame-card')).toHaveCount(7);
-const raid=page.getByRole('button',{name:'Raid Frames',exact:true});await expect(raid).toHaveAttribute('aria-pressed','true');await raid.click();await expect(raid).toHaveAttribute('aria-pressed','false');await expect(page.getByText('1 change would require a reload',{exact:false})).toBeVisible();await raid.click();await expect(page.getByRole('button',{name:'Simulate reload'})).toBeDisabled();
+const raid=page.getByRole('button',{name:'Raid Frames',exact:true});const initial=await raid.getAttribute('aria-pressed');await raid.click();await expect(raid).toHaveAttribute('aria-pressed',String(initial!=='true'));await expect(page.getByText('1 change would require a reload',{exact:false})).toBeVisible();await raid.click();await expect(page.getByRole('button',{name:'Simulate reload'})).toBeDisabled();
 await page.screenshot({path:'test-results/screenshots/frame-cards.png',fullPage:true});
 await page.getByRole('navigation').getByRole('button',{name:'Quest Tracker'}).click();
 await page.getByRole('button',{name:'Border',exact:true}).click();

@@ -29,7 +29,7 @@ On this gh-pages branch, run npm ci and npm run build, then commit the source an
 
 ## Scope and source
 
-The 14-section settings metadata in src/source-settings.json was exported from the FlareUI settings registry during preview development. Values form a demonstration profile, not a live profile. Interactive specimens are HTML/CSS simulations; representative visual options update the scene. Unsupported game actions explain their in-game purpose. Combat, protected frames, Lua behavior and native rendering require testing in WoW.
+The 14-section settings metadata and reset defaults in src/source-settings.json are exported from FlareUI 5.1.2, addon branch integrate/settings-ui-5.1.1 at 16cb564. The browser includes the compact frame cards, bronze section icons, per-section resets, portrait and level controls, sliders, and targeted Edit Frames / Edit Bars menus. Refresh metadata with `luajit scripts/export-settings.lua` while the addon checkout is at `../repo`. Values form a demonstration profile, not a live profile. Interactive specimens are HTML/CSS simulations; representative visual options update the scene. Unsupported game actions explain their in-game purpose. Combat, protected frames, Lua behavior and native rendering require testing in WoW.
 
 Bundled artwork is from FlareUI's Media/Art and remains subject to its original restrictions; it is not covered by the code's MIT license. Fonts retain their original licenses. See LICENSE.txt and public/licenses/. Reference mode shows the bundled addon artwork; portraits and geometry remain simplified. Spell/item icons and gryphon end caps now use bundled WoW assets with provenance in public/wow/ATTRIBUTION.md.
 
