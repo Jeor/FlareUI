@@ -1,8 +1,0 @@
-## Interface: 120005
-## Title: Minimal Addon
-## Notes: Minimal example addon with events, SavedVariables, and a slash command.
-## Author: YourName
-## Version: 1.0.0
-## SavedVariables: MinimalAddonDB
-
-MinimalAddon.lua

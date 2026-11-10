@@ -7,7 +7,7 @@ const files = [];
 (function walk(dir) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) { if (!['Libs', 'Locales', '.git', '.agents', 'Media', 'tools'].includes(e.name)) walk(p); }
+    if (e.isDirectory()) { if (!['Libs', 'Locales', '.git', 'Media', 'tools'].includes(e.name)) walk(p); }
     else if (p.endsWith('.lua')) files.push(p);
   }
 })(ROOT);

@@ -10,6 +10,4 @@ ignore:
   - CHANGELOG-history.md
   - tools
   - docs
-  - .agents
-  - AGENTS.md
   - Locales/enUS.lua
